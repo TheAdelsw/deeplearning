@@ -17,6 +17,7 @@ class NoiseInjection:
         """
         经过广播后相乘 noise变成有C个通道 相同位置的像素在每个通道的噪声相同
         乘以不同的噪声强度 最终不同通道不同像素的噪声都不同
+        不同张图片的同个通道的所有像素都是一样的噪声强度
         """
         out = x + noise * self.strength.view(1, C, 1, 1)
         return out
