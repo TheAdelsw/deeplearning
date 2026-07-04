@@ -22,5 +22,8 @@ class NoiseInjection:
         out = x + noise * self.strength.view(1, C, 1, 1)
         return out
 
+    def Params(self):
+        return [self.strength]
+
 
 

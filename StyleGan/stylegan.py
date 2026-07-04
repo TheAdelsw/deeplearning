@@ -1,4 +1,5 @@
 import torch
+import torch.nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -11,6 +12,7 @@ from AdaIN import AdaIN
 
 class StyleGAN:
     def __init__(self, lr, device):
+        self.gp_lambda = 10
         self.lr = lr
         self.device = device
         self.mapping = MappingNet(z_dim = 512, w_dim = 512, device = device)
@@ -57,11 +59,32 @@ class StyleGAN:
             conv_w = torch.randn(cout, cin, 3, 3, requires_grad = True, device = device)
             self.critic_convs.append(conv_w)
 
+        #必须先初始化权重 然后创建优化器
+        self.init_weights()
+
         self.opt_G = optim.Adam(self.Params_G(), lr = self.lr, betas = (0.0, 0.99))
         self.opt_C = optim.Adam(self.Params_C(), lr = self.lr, betas = (0.0, 0.99))
 
     def init_weights(self):
-        pass
+        #生成器卷积
+        for conv in self.syn_convs:
+            for w in conv:
+                torch.nn.init.kaiming_normal_(w, mode = 'fan_in', nonlinearity = 'leaky_relu', a = 0.2)
+
+
+        #toRGB
+        for w in self.syn_torgb:
+            w.data.normal_(0, 0.01)
+
+
+        #判别器
+        for i in range(8):
+            torch.nn.init.kaiming_normal_(self.critic_convs[i], mode = 'fan_in', nonlinearity = 'leaky_relu', a = 0.2)
+
+        torch.nn.init.kaiming_normal_(self.critic_final_conv, mode = 'fan_in', nonlinearity = 'leaky_relu', a = 0.2)
+        self.critic_final_conv.data *= 0.01
+
+        
 
 
     def Synthesis(self, W):
@@ -98,6 +121,12 @@ class StyleGAN:
 
         return torch.tanh(rgb)
 
+    def Generate(self, z):
+        with torch.no_grad():
+            w = self.mapping.Forward(z)
+            img = self.Synthesis(w)
+        return img 
+
     def Critic(self, img):
         x = img
         for i in range(8):
@@ -106,7 +135,7 @@ class StyleGAN:
             #池化
             if i < 7:
                 x = F.avg_pool2d(x, 2)
-            #i == 8时此时x为 [B, 512, 4, 4]
+            #i == 7时此时x为 [B, 512, 4, 4]
         out = F.conv2d(x, self.critic_final_conv, stride = 1, padding = 0)
         return out.view(-1)
 
@@ -138,3 +167,58 @@ class StyleGAN:
         return params
 
         
+
+    def gradient_penalty(self, real_img, fake_img):
+        alpha = torch.rand(real_img.size(0), 1, 1, 1,device = self.device)
+        interpolates = alpha * real_img + (1-alpha) * fake_img
+        interpolates.requires_grad_(True)
+
+        d_interpolates = self.Critic(interpolates)
+
+        gradients = torch.autograd.grad(
+            outputs=d_interpolates,
+            inputs=interpolates,
+            grad_outputs=torch.ones_like(d_interpolates),#自动匹配 device
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True
+        )[0]
+
+        gradients = gradients.view(gradients.size(0), -1)
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+        return gradient_penalty
+    
+
+    def TrainCell_C(self, real_img):
+        B = real_img.size(0)
+        z = torch.randn(B, 512, device = self.device)
+        w = self.mapping.Forward(z)
+        fake_img = self.Synthesis(w).detach()
+
+        real_score = self.Critic(real_img)
+        fake_score = self.Critic(fake_img)
+
+        gp = self.gradient_penalty(real_img, fake_img)
+
+        loss_C = fake_score.mean() - real_score.mean() + self.gp_lambda * gp
+
+        self.opt_C.zero_grad()
+        loss_C.backward()
+        self.opt_C.step()
+
+        return loss_C.item()
+
+
+
+    def TrainCell_G(self, z):#生成时外部提供风格源噪声z
+        w = self.mapping.Forward(z)
+        fake_img = self.Synthesis(w)
+
+        fake_score = self.Critic(fake_img)
+        loss_G = -fake_score.mean()
+
+        self.opt_G.zero_grad()
+        loss_G.backward()
+        self.opt_G.step()
+
+        return loss_G.item()
