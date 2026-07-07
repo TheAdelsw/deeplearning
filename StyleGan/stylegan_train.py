@@ -56,6 +56,7 @@ def save_model(model, path):
     # ===== Critic (8 conv + 1 final) =====
     for i in range(8):
         state[f'critic_conv_{i}'] = model.critic_convs[i].data.cpu()
+        state[f'critic_fromrgb_{i}'] = model.critic_fromrgb[i].data.cpu()
     state['critic_final'] = model.critic_final_conv.data.cpu()
 
     # ===== Optimizers =====
@@ -95,6 +96,7 @@ def load_model(model, path):
     # ===== Critic =====
     for i in range(8):
         model.critic_convs[i].data.copy_(checkpoint[f'critic_conv_{i}'].to(model.device))
+        model.critic_fromrgb[i].data.copy_(checkpoint[f'critic_fromrgb_{i}'].to(model.device))
     model.critic_final_conv.data.copy_(checkpoint['critic_final'].to(model.device))
 
     # ===== Optimizers =====
@@ -118,28 +120,29 @@ def load_model(model, path):
 
 
 
-def train(model, epochs, dataloader, save_path):
+def train(model, epochs, dataloader, save_path, Phase, Alpha):
     cnt = 0
     for epoch in range(epochs):
         for real_img in dataloader:
             cnt += 1
             real_img = real_img.to(model.device)
 
-            #判别器训练
+            # 判别器训练
             for _ in range(3):
-                loss_C = model.TrainCell_C(real_img)
+                loss_C = model.TrainCell_C(real_img, Phase, Alpha)
 
-            #生成器训练
+            # 生成器训练
             z = torch.randn(real_img.size(0), 512, device=model.device)
-            loss_G = model.TrainCell_G(z)
+            loss_G = model.TrainCell_G(z, Phase, Alpha)
 
             if cnt % 30 == 0:
                 print(f"Iter [{cnt}] loss_C: {loss_C:.4f}  loss_G: {loss_G:.4f}")
-            
+
             if cnt % 500 == 0:
                 save_model(model, save_path)
 
     save_model(model, save_path)
+
 
 
 
@@ -166,7 +169,7 @@ if __name__ == "__main__":
         print("未找到模型,开始训练新模型")
 
     try:
-        train(model = model, epochs=100, dataloader = dataloader, save_path = model_path)
+        train(model = model, epochs=50, Phase = 1, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
 
     except KeyboardInterrupt:
         print("\n中断训练,正在保存模型...")
