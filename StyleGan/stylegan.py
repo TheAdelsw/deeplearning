@@ -46,7 +46,7 @@ class StyleGAN:
             self.syn_torgb.append(torgb_w)
             self.syn_noises.append([noise1, noise2])
             self.syn_adains.append([adain1, adain2])
-
+        #                   512 256 128 64   32   16   8    4 
         self.critic_ch_in = [3, 32, 64, 128, 256, 512, 512, 512]
         self.critic_ch_out = [32, 64, 128, 256, 512, 512, 512, 512]
 
@@ -149,9 +149,10 @@ class StyleGAN:
                 #池化
                 if i < 7:
                     #i == 7时此时x为 [B, 512, 4, 4]
-                    x_new = F.avg_pool2d(x, 2)
-                
-                x = Alpha * x_new + (1 - Alpha) * F.avg_pool2d(x, 2)
+                    x_new = F.avg_pool2d(x_new, 2)
+                x_old = F.avg_pool2d(img, 2)
+                x_old = F.conv2d(x_old, self.critic_fromrgb[i+1], stride = 1, padding = 0)
+                x = Alpha * x_new + (1 - Alpha) * x_old
 
             else:
                 x = F.conv2d(x, self.critic_convs[i], stride=1, padding=1)
@@ -249,3 +250,103 @@ class StyleGAN:
         self.opt_G.step()
 
         return loss_G.item()
+
+
+
+
+
+
+
+
+
+
+
+
+def save_model(model, path):
+    state = {}
+
+    # ===== Mapping Network (8 个 Linear) =====
+    fcs = [model.mapping.fc1, model.mapping.fc2, model.mapping.fc3, model.mapping.fc4,
+           model.mapping.fc5, model.mapping.fc6, model.mapping.fc7, model.mapping.fc8]
+    for i, fc in enumerate(fcs):
+        state[f'map_fc{i}_W'] = fc.W.data.cpu()
+        state[f'map_fc{i}_b'] = fc.b.data.cpu()
+
+    # ===== const_input =====
+    state['const_input'] = model.const_input.data.cpu()
+
+    # ===== Synthesis Network (8 stages) =====
+    for i in range(8):
+        state[f'syn_conv1_{i}'] = model.syn_convs[i][0].data.cpu()
+        state[f'syn_conv2_{i}'] = model.syn_convs[i][1].data.cpu()
+        state[f'syn_torgb_{i}'] = model.syn_torgb[i].data.cpu()
+        # Noise strength
+        state[f'syn_ns1_{i}'] = model.syn_noises[i][0].strength.data.cpu()
+        state[f'syn_ns2_{i}'] = model.syn_noises[i][1].strength.data.cpu()
+        # AdaIN Affine (Linear 的 W 和 b)
+        state[f'syn_ada1_W_{i}'] = model.syn_adains[i][0].Affine.W.data.cpu()
+        state[f'syn_ada1_b_{i}'] = model.syn_adains[i][0].Affine.b.data.cpu()
+        state[f'syn_ada2_W_{i}'] = model.syn_adains[i][1].Affine.W.data.cpu()
+        state[f'syn_ada2_b_{i}'] = model.syn_adains[i][1].Affine.b.data.cpu()
+
+    # ===== Critic (8 conv + 1 final) =====
+    for i in range(8):
+        state[f'critic_conv_{i}'] = model.critic_convs[i].data.cpu()
+        state[f'critic_fromrgb_{i}'] = model.critic_fromrgb[i].data.cpu()
+    state['critic_final'] = model.critic_final_conv.data.cpu()
+
+    # ===== Optimizers =====
+    state['opt_G'] = model.opt_G.state_dict()
+    state['opt_C'] = model.opt_C.state_dict()
+
+    torch.save(state, path)
+    print(f"模型已保存到 {path}")
+    
+
+
+def load_model(model, path):
+    checkpoint = torch.load(path, map_location='cpu')
+
+    # ===== Mapping Network =====
+    fcs = [model.mapping.fc1, model.mapping.fc2, model.mapping.fc3, model.mapping.fc4,
+           model.mapping.fc5, model.mapping.fc6, model.mapping.fc7, model.mapping.fc8]
+    for i, fc in enumerate(fcs):
+        fc.W.data.copy_(checkpoint[f'map_fc{i}_W'].to(model.device))
+        fc.b.data.copy_(checkpoint[f'map_fc{i}_b'].to(model.device))
+
+    # ===== const_input =====
+    model.const_input.data.copy_(checkpoint['const_input'].to(model.device))
+
+    # ===== Synthesis Network =====
+    for i in range(8):
+        model.syn_convs[i][0].data.copy_(checkpoint[f'syn_conv1_{i}'].to(model.device))
+        model.syn_convs[i][1].data.copy_(checkpoint[f'syn_conv2_{i}'].to(model.device))
+        model.syn_torgb[i].data.copy_(checkpoint[f'syn_torgb_{i}'].to(model.device))
+        model.syn_noises[i][0].strength.data.copy_(checkpoint[f'syn_ns1_{i}'].to(model.device))
+        model.syn_noises[i][1].strength.data.copy_(checkpoint[f'syn_ns2_{i}'].to(model.device))
+        model.syn_adains[i][0].Affine.W.data.copy_(checkpoint[f'syn_ada1_W_{i}'].to(model.device))
+        model.syn_adains[i][0].Affine.b.data.copy_(checkpoint[f'syn_ada1_b_{i}'].to(model.device))
+        model.syn_adains[i][1].Affine.W.data.copy_(checkpoint[f'syn_ada2_W_{i}'].to(model.device))
+        model.syn_adains[i][1].Affine.b.data.copy_(checkpoint[f'syn_ada2_b_{i}'].to(model.device))
+
+    # ===== Critic =====
+    for i in range(8):
+        model.critic_convs[i].data.copy_(checkpoint[f'critic_conv_{i}'].to(model.device))
+        model.critic_fromrgb[i].data.copy_(checkpoint[f'critic_fromrgb_{i}'].to(model.device))
+    model.critic_final_conv.data.copy_(checkpoint['critic_final'].to(model.device))
+
+    # ===== Optimizers =====
+    model.opt_G.load_state_dict(checkpoint['opt_G'])
+    model.opt_C.load_state_dict(checkpoint['opt_C'])
+
+    # 把优化器内部状态搬到正确 device
+    for state in model.opt_G.state.values():
+        for k, v in state.items():
+            if torch.is_tensor(v):
+                state[k] = v.to(model.device)
+    for state in model.opt_C.state.values():
+        for k, v in state.items():
+            if torch.is_tensor(v):
+                state[k] = v.to(model.device)
+
+    print(f"模型已从 {path} 加载")
