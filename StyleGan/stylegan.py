@@ -12,7 +12,7 @@ from AdaIN import AdaIN
 
 class StyleGAN:
     def __init__(self, lr, device):
-        self.gp_lambda = 10
+        self.gp_lambda = 1
         self.lr = lr
         self.device = device
         self.mapping = MappingNet(z_dim = 512, w_dim = 512, device = device)
@@ -68,6 +68,10 @@ class StyleGAN:
 
         self.opt_G = optim.Adam(self.Params_G(), lr = self.lr, betas = (0.0, 0.99))
         self.opt_C = optim.Adam(self.Params_C(), lr = self.lr, betas = (0.0, 0.99))
+
+        #AMP混合精度
+        self.scaler = torch.cuda.amp.GradScaler()
+
 
     def init_weights(self):
         #生成器卷积
@@ -220,34 +224,51 @@ class StyleGAN:
 
         B = real_img.size(0)
         z = torch.randn(B, 512, device = self.device)
-        w = self.mapping.Forward(z)
-        fake_img = self.Synthesis(w, Phase, Alpha).detach()
 
-        real_score = self.Critic(real_img, Phase, Alpha)
-        fake_score = self.Critic(fake_img, Phase, Alpha)
+        #混合精度 autocast
+        with torch.cuda.amp.autocast():
+            w = self.mapping.Forward(z)
+            fake_img = self.Synthesis(w, Phase, Alpha).detach()
+
+            real_score = self.Critic(real_img, Phase, Alpha)
+            fake_score = self.Critic(fake_img, Phase, Alpha)
 
         gp = self.gradient_penalty(real_img, fake_img, Phase, Alpha)
 
-        loss_C = fake_score.mean() - real_score.mean() + self.gp_lambda * gp
+        loss_C = fake_score.float().mean() - real_score.float().mean() + self.gp_lambda * gp
 
         self.opt_C.zero_grad()
-        loss_C.backward()
-        self.opt_C.step()
+        # loss_C.backward()
+        self.scaler.scale(loss_C).backward()
+        # self.opt_C.step()
+        self.scaler.step(self.opt_C)
+        self.scaler.update()
+
+        #   用以监测训练效果
+        if torch.rand(1).item() < 0.01:  # 1% 概率打印
+            print(f"  [C] real:{real_score.mean():.2f} fake:{fake_score.mean():.2f} gap:{(real_score.mean()-fake_score.mean()):.2f} gp:{gp:.4f}")
+
 
         return loss_C.item()
 
 
 
     def TrainCell_G(self, z, Phase, Alpha):#生成时外部提供风格源噪声z
-        w = self.mapping.Forward(z)
-        fake_img = self.Synthesis(w, Phase, Alpha)
+        
+        #AMP混合精度
+        with torch.cuda.amp.autocast():
+            w = self.mapping.Forward(z)
+            fake_img = self.Synthesis(w, Phase, Alpha)
 
-        fake_score = self.Critic(fake_img, Phase, Alpha)
-        loss_G = -fake_score.mean()
+            fake_score = self.Critic(fake_img, Phase, Alpha)
+            loss_G = -fake_score.mean()
 
         self.opt_G.zero_grad()
-        loss_G.backward()
-        self.opt_G.step()
+        # loss_G.backward()
+        self.scaler.scale(loss_G).backward()
+        # self.opt_G.step()
+        self.scaler.step(self.opt_G)
+        self.scaler.update()
 
         return loss_G.item()
 
@@ -299,6 +320,10 @@ def save_model(model, path):
     state['opt_G'] = model.opt_G.state_dict()
     state['opt_C'] = model.opt_C.state_dict()
 
+    #scaler
+    state['scaler'] = model.scaler.state_dict()
+
+
     torch.save(state, path)
     print(f"模型已保存到 {path}")
     
@@ -338,6 +363,10 @@ def load_model(model, path):
     # ===== Optimizers =====
     model.opt_G.load_state_dict(checkpoint['opt_G'])
     model.opt_C.load_state_dict(checkpoint['opt_C'])
+     
+    #scaler
+    model.scaler.load_state_dict(checkpoint['scaler'])
+
 
     # 把优化器内部状态搬到正确 device
     for state in model.opt_G.state.values():

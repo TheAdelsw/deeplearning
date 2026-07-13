@@ -14,8 +14,15 @@ from StyleGAN import StyleGAN
 class ImageDataset(Dataset):
     def __init__(self,img_dir):
         self.img_dir = img_dir
-        self.img_names = os.listdir(img_dir)
         self.images = []
+
+        valid_ext = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif')
+        self.img_names = [
+            f for f in os.listdir(img_dir)
+            if f.lower().endswith(valid_ext)
+        ]
+
+
         for name in self.img_names:
             img_path = os.path.join(self.img_dir,name)
             img = cv2.imread(img_path, cv2.IMREAD_COLOR) #形状为H*W*C
@@ -47,7 +54,7 @@ def train(model, epochs, dataloader, save_path, Phase, Alpha):
             real_img = real_img.to(model.device)
 
             # 判别器训练
-            for _ in range(3):
+            for _ in range(1):
                 loss_C = model.TrainCell_C(real_img, Phase, Alpha)
 
             # 生成器训练
@@ -55,7 +62,7 @@ def train(model, epochs, dataloader, save_path, Phase, Alpha):
             loss_G = model.TrainCell_G(z, Phase, Alpha)
 
             if cnt % 30 == 0:
-                print(f"Phase[{Phase}] Iter [{cnt}] loss_C: {loss_C:.4f}  loss_G: {loss_G:.4f}")
+                print(f"Phase[{Phase}] Alpha[{Alpha}] Iter [{cnt}] loss_C: {loss_C:.4f}  loss_G: {loss_G:.4f}")
 
             if cnt % 500 == 0:
                 save_model(model, save_path)
@@ -66,11 +73,11 @@ def train(model, epochs, dataloader, save_path, Phase, Alpha):
 
 
 
-def make_photo(model, device):
+def make_photo(Phase, model, device):
     with torch.no_grad():
         z = torch.randn(1, 512, device = device)
         w = model.mapping.Forward(z)
-        img = model.Synthesis(w, 8, 1.0)
+        img = model.Synthesis(w, Phase, 1.0)
         img = (img + 1) / 2
         img = img.clamp(0, 1)      # [1, 3, 512, 512]
 
@@ -93,8 +100,8 @@ if __name__ == "__main__":
     
     device = 'cuda'
     img_path = r"D:\source_data\ImageDataset\simple"
-    model_path = r"D:\Project\deeplearning\StyleGan\model\stylengan_v1"
-    model = StyleGAN(lr = 0.001, device = device)
+    model_path = r"D:\Project\deeplearning\StyleGan\model\SG_1"
+    model = StyleGAN(lr = 0.0005, device = device)
 
     #cuDNN自动选择最优卷积算法
     torch.backends.cudnn.benchmark = True
@@ -106,30 +113,30 @@ if __name__ == "__main__":
         print("未找到模型,开始训练新模型")
 
 
-    make_photo(model=model, device=device)
-    
+    make_photo(8, model=model, device=device)
+    exit()
 
 
 
-
+    print("加载数据集中......")
     dataset = ImageDataset(img_path)
     dataloader = DataLoader(
             dataset, 
             batch_size = 16, 
             shuffle = True, 
-            num_workers = 2, 
+            num_workers = 0, 
             pin_memory = True, 
-            persistent_workers = True,
+            #persistent_workers = True,
             #prefetch_factor = 0
             )
-
+    print("数据集加载完成")
 
 
     try:
         
-        #train(model = model, epochs=150, Phase = 2, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
-        train(model = model, epochs=20, Phase = 3, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=250, Phase = 3, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
+        train(model = model, epochs=100, Phase = 1, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
+        #train(model = model, epochs=20, Phase = 4, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
+        #train(model = model, epochs=60, Phase = 5, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
         # train(model = model, epochs=300, Phase = 3, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
         # train(model = model, epochs=300, Phase = 3, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
         
