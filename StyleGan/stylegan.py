@@ -11,8 +11,9 @@ from AdaIN import AdaIN
 
 
 class StyleGAN:
-    def __init__(self, lr, device):
-        self.gp_lambda = 1
+    def __init__(self, lr, device, use_amp):
+        self.use_amp = use_amp
+        self.gp_lambda = 15
         self.lr = lr
         self.device = device
         self.mapping = MappingNet(z_dim = 512, w_dim = 512, device = device)
@@ -225,24 +226,40 @@ class StyleGAN:
         B = real_img.size(0)
         z = torch.randn(B, 512, device = self.device)
 
-        #混合精度 autocast
-        with torch.cuda.amp.autocast():
+        if self.use_amp :
+            #混合精度 autocast
+            with torch.amp.autocast('cuda'):
+                w = self.mapping.Forward(z)
+                fake_img = self.Synthesis(w, Phase, Alpha).detach()
+
+                real_score = self.Critic(real_img, Phase, Alpha)
+                fake_score = self.Critic(fake_img, Phase, Alpha)
+
+            gp = self.gradient_penalty(real_img, fake_img, Phase, Alpha)
+
+            loss_C = fake_score.float().mean() - real_score.float().mean() + self.gp_lambda * gp
+
+            self.opt_C.zero_grad()
+            # loss_C.backward()
+            self.scaler.scale(loss_C).backward()
+            # self.opt_C.step()
+            self.scaler.step(self.opt_C)
+            self.scaler.update()
+        else:
             w = self.mapping.Forward(z)
             fake_img = self.Synthesis(w, Phase, Alpha).detach()
 
             real_score = self.Critic(real_img, Phase, Alpha)
             fake_score = self.Critic(fake_img, Phase, Alpha)
+            gp = self.gradient_penalty(real_img, fake_img, Phase, Alpha)
 
-        gp = self.gradient_penalty(real_img, fake_img, Phase, Alpha)
+            loss_C = fake_score.float().mean() - real_score.float().mean() + self.gp_lambda * gp
 
-        loss_C = fake_score.float().mean() - real_score.float().mean() + self.gp_lambda * gp
+            self.opt_C.zero_grad()
+            loss_C.backward()
+            self.opt_C.step()
 
-        self.opt_C.zero_grad()
-        # loss_C.backward()
-        self.scaler.scale(loss_C).backward()
-        # self.opt_C.step()
-        self.scaler.step(self.opt_C)
-        self.scaler.update()
+
 
         #   用以监测训练效果
         if torch.rand(1).item() < 0.01:  # 1% 概率打印
@@ -255,20 +272,31 @@ class StyleGAN:
 
     def TrainCell_G(self, z, Phase, Alpha):#生成时外部提供风格源噪声z
         
-        #AMP混合精度
-        with torch.cuda.amp.autocast():
+        if self.use_amp :
+            #AMP混合精度
+            with torch.amp.autocast('cuda'):
+                w = self.mapping.Forward(z)
+                fake_img = self.Synthesis(w, Phase, Alpha)
+
+                fake_score = self.Critic(fake_img, Phase, Alpha)
+                loss_G = -fake_score.mean()
+
+            self.opt_G.zero_grad()
+            # loss_G.backward()
+            self.scaler.scale(loss_G).backward()
+            # self.opt_G.step()
+            self.scaler.step(self.opt_G)
+            self.scaler.update()
+        else :
             w = self.mapping.Forward(z)
             fake_img = self.Synthesis(w, Phase, Alpha)
 
             fake_score = self.Critic(fake_img, Phase, Alpha)
             loss_G = -fake_score.mean()
 
-        self.opt_G.zero_grad()
-        # loss_G.backward()
-        self.scaler.scale(loss_G).backward()
-        # self.opt_G.step()
-        self.scaler.step(self.opt_G)
-        self.scaler.update()
+            self.opt_G.zero_grad()
+            loss_G.backward()
+            self.opt_G.step()
 
         return loss_G.item()
 

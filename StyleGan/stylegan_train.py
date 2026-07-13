@@ -68,7 +68,7 @@ def train(model, epochs, dataloader, save_path, Phase, Alpha):
                 save_model(model, save_path)
 
     save_model(model, save_path)
-
+    save_model(model, f"D:\Project\deeplearning\StyleGAN\model\SG_P{Phase}_A{Alpha}")
 
 
 
@@ -79,7 +79,7 @@ def make_photo(Phase, model, device):
         w = model.mapping.Forward(z)
         img = model.Synthesis(w, Phase, 1.0)
         img = (img + 1) / 2
-        img = img.clamp(0, 1)      # [1, 3, 512, 512]
+        # img = img.clamp(0, 1)      # [1, 3, 512, 512]
 
         # 2. [C,H,W] → [H,W,C]
         img = img[0].permute(1, 2, 0).cpu().numpy()     # [512, 512, 3], RGB
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     device = 'cuda'
     img_path = r"D:\source_data\ImageDataset\simple"
     model_path = r"D:\Project\deeplearning\StyleGan\model\SG_1"
-    model = StyleGAN(lr = 0.0005, device = device)
+    model = StyleGAN(lr = 0.0004, device = device, use_amp = False)
 
     #cuDNN自动选择最优卷积算法
     torch.backends.cudnn.benchmark = True
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         print("未找到模型,开始训练新模型")
 
 
-    make_photo(8, model=model, device=device)
+    make_photo(3, model=model, device=device)
     exit()
 
 
@@ -134,27 +134,15 @@ if __name__ == "__main__":
 
     try:
         
-        train(model = model, epochs=100, Phase = 1, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
-        #train(model = model, epochs=20, Phase = 4, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        #train(model = model, epochs=60, Phase = 5, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=300, Phase = 3, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=300, Phase = 3, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
+        train(model = model, epochs=50, Phase = 3, Alpha = 0.0, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 2, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 2, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 2, Alpha = 0.75, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=400, Phase = 2, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
         
-        # train(model = model, epochs=250, Phase = 4, Alpha = 0.1, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=300, Phase = 4, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=400, Phase = 4, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=400, Phase = 4, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
-        
-        # train(model = model, epochs=300, Phase = 5, Alpha = 0.1, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=300, Phase = 5, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=300, Phase = 5, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=400, Phase = 5, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
-        
-        # train(model = model, epochs=300, Phase = 6, Alpha = 0.1, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=400, Phase = 6, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=400, Phase = 6, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=500, Phase = 6, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
-        
+
+
+
     except KeyboardInterrupt:
         print("\n中断训练,正在保存模型...")
         save_model(model, model_path)
