@@ -13,7 +13,7 @@ from AdaIN import AdaIN
 class StyleGAN:
     def __init__(self, lr, device, use_amp):
         self.use_amp = use_amp
-        self.gp_lambda = 15
+        self.gp_lambda = 8
         self.lr = lr
         self.device = device
         self.mapping = MappingNet(z_dim = 512, w_dim = 512, device = device)
@@ -242,6 +242,9 @@ class StyleGAN:
             self.opt_C.zero_grad()
             # loss_C.backward()
             self.scaler.scale(loss_C).backward()
+            #梯度裁剪
+            torch.nn.utils.clip_grad_norm_(self.Params_C(), max_norm=10.0)
+
             # self.opt_C.step()
             self.scaler.step(self.opt_C)
             self.scaler.update()
@@ -257,6 +260,9 @@ class StyleGAN:
 
             self.opt_C.zero_grad()
             loss_C.backward()
+            #梯度裁剪
+            torch.nn.utils.clip_grad_norm_(self.Params_C(), max_norm=10.0)
+
             self.opt_C.step()
 
 
@@ -284,6 +290,9 @@ class StyleGAN:
             self.opt_G.zero_grad()
             # loss_G.backward()
             self.scaler.scale(loss_G).backward()
+            #梯度裁剪
+            torch.nn.utils.clip_grad_norm_(self.Params_G(), max_norm=10.0)
+
             # self.opt_G.step()
             self.scaler.step(self.opt_G)
             self.scaler.update()
@@ -296,6 +305,9 @@ class StyleGAN:
 
             self.opt_G.zero_grad()
             loss_G.backward()
+            #梯度裁剪
+            torch.nn.utils.clip_grad_norm_(self.Params_G(), max_norm=10.0)
+
             self.opt_G.step()
 
         return loss_G.item()

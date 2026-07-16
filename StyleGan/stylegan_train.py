@@ -100,7 +100,7 @@ if __name__ == "__main__":
     
     device = 'cuda'
     img_path = r"D:\source_data\ImageDataset\simple"
-    model_path = r"D:\Project\deeplearning\StyleGan\model\SG_1"
+    model_path = r"D:\Project\deeplearning\StyleGAN\model\SG_1"
     model = StyleGAN(lr = 0.0004, device = device, use_amp = False)
 
     #cuDNN自动选择最优卷积算法
@@ -112,9 +112,10 @@ if __name__ == "__main__":
     else:
         print("未找到模型,开始训练新模型")
 
-
-    make_photo(3, model=model, device=device)
-    exit()
+    while(True):
+        make_photo(5, model=model, device=device)
+    make_photo(4, model=model, device=device)
+    # exit()
 
 
 
@@ -134,11 +135,11 @@ if __name__ == "__main__":
 
     try:
         
-        train(model = model, epochs=50, Phase = 3, Alpha = 0.0, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=50, Phase = 2, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=50, Phase = 2, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=50, Phase = 2, Alpha = 0.75, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=400, Phase = 2, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 4, Alpha = 0.0, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 4, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 4, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 4, Alpha = 0.75, dataloader = dataloader, save_path = model_path)
+        train(model = model, epochs=400, Phase = 4, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
         
 
 
