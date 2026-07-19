@@ -73,9 +73,10 @@ def train(model, epochs, dataloader, save_path, Phase, Alpha):
 
 
 
-def make_photo(Phase, model, device):
+def make_photo(Phase, model, device, idx = 1):
     with torch.no_grad():
-        z = torch.randn(1, 512, device = device)
+        z = -torch.rand(1, 512, device = device)*1.5
+
         w = model.mapping.Forward(z)
         img = model.Synthesis(w, Phase, 1.0)
         img = (img + 1) / 2
@@ -86,11 +87,13 @@ def make_photo(Phase, model, device):
 
         # 3. RGB → BGR（因为 cv2.imshow 要 BGR）
         #img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = (img * 255).clip(0, 255).astype('uint8')        
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(rf"D:\Project\deeplearning\StyleGAN\output\gen_{idx}.png", img)
 
-        plt.imshow(img)
-        plt.axis('off')
-        plt.show()
+        # plt.imshow(img)
+        # plt.axis('off')
+        # plt.show()
 
 
 
@@ -112,10 +115,10 @@ if __name__ == "__main__":
     else:
         print("未找到模型,开始训练新模型")
 
-    while(True):
-        make_photo(5, model=model, device=device)
-    make_photo(4, model=model, device=device)
-    # exit()
+    for i in range(1000):
+        make_photo(7, model=model, device=device, idx=i)
+    # make_photo(7, model=model, device=device)
+    exit()
 
 
 
@@ -135,11 +138,11 @@ if __name__ == "__main__":
 
     try:
         
-        # train(model = model, epochs=50, Phase = 4, Alpha = 0.0, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=50, Phase = 4, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=50, Phase = 4, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
-        # train(model = model, epochs=50, Phase = 4, Alpha = 0.75, dataloader = dataloader, save_path = model_path)
-        train(model = model, epochs=400, Phase = 4, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 7, Alpha = 0.0, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 7, Alpha = 0.25, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=50, Phase = 7, Alpha = 0.5, dataloader = dataloader, save_path = model_path)
+        train(model = model, epochs=50, Phase = 7, Alpha = 0.75, dataloader = dataloader, save_path = model_path)
+        # train(model = model, epochs=100, Phase = 7, Alpha = 1.0, dataloader = dataloader, save_path = model_path)
         
 
 
