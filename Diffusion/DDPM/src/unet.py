@@ -38,9 +38,9 @@ class TimeEmbedding(nn.Module):
         # sin 和 cos 各 64 维拼起来 -> [B 128]
         emb = torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
 
-        return self.mlp(emb)           # [B 256]
+        return self.mlp(emb)           # [B 256] 注意此时未使用激活函数
 
-#残差块
+#残差块 输入in通道 输出out通道 时间向量嵌入维度同out通道数 共2次卷积1次时间维度全连接
 class ResBlock(nn.Module):
     def __init__(self, in_ch, out_ch, emb_dim = 256):
         super().__init__()
@@ -58,7 +58,7 @@ class ResBlock(nn.Module):
     def forward(self, x, t_emb):
         # x: [B,in_ch,H,W]  t_emb: [B,256]
         h = self.conv1(self.act(self.norm1(x)))               # [B,out_ch,H,W]
-        #第一层卷积这里的意义是什么 我没有理解 h又是干嘛的
+        
         t = self.t_proj(self.act(t_emb))[:, :, None, None]  #此处将二维的时间编码[B,ch]变为[B,ch,1,1]
 
         h = h + t   #时间编码注入
@@ -71,7 +71,7 @@ class ResBlock(nn.Module):
         return h + self.skip(x) #残差 但是原x需要经过卷积对齐通道 但是仍然能高效传播梯度
 
 
-#自注意力
+#自注意力 输入ch通道 经过自注意力架构输出同样的ch通道的数据 但是每个通道的每个位置都结合了其他所有位置的信息
 class SelfAttention(nn.Module):
     """自注意力：每个位置直接查询全图所有位置，实现全局信息交换
     只用在低分辨率层(16x16/8x8)，高分辨率层算不动也没必要
@@ -99,13 +99,13 @@ class SelfAttention(nn.Module):
         h = self.norm(x)    #此处经过norm修改原始数据 被设计成这样 主流做法
 
         q, k, v = self.qkv(h).chunk(3, dim=1)   # 各 [B, C, H, W]
-        #chunk是什么函数 将通道均分吗
+        #chunk将通道均分吗
 
         q = q.view(B, C, N).permute(0, 2, 1)    # [B, N, C] 每个位置一行=它的"提问"
         k = k.view(B, C, N)                     # [B, C, N] 每个位置一列=它的"简历"
         v = v.view(B, C, N).permute(0, 2, 1)    # [B, N, C] 每个位置一行=它可提供的"信息
 
-        #求得相应的注意力权重(此时还没有注入信息v) 另外 (C ** -0.5)也是transformer里论文防止参数爆炸的做法
+        #求得相应的注意力权重(此时还没有注入信息v) 另外(C ** -0.5)也是transformer里论文防止参数爆炸的做法
         attn = q @ k * (C ** -0.5)
         #化为概率分布 即每个位置的信息分配比例 决定了要融合某位置的多少信息
         attn = attn.softmax(dim=-1)     #此时attn 是B批次的 N * N 矩阵
@@ -113,7 +113,112 @@ class SelfAttention(nn.Module):
         out = attn @ v
         out = out.permute(0, 2, 1).reshape(B, C, H, W)  #先变为B C N 再将最后的N 变为H W
 
-        return x + self.gamma * self.proj(out)  # 这边的proj我没看懂是干嘛的 你讲解一下
+        return x + self.gamma * self.proj(out)
+        # 这边的proj 通过1*1卷积类似一层全连接线性映射 即Transformer中对注意力得来的消息精加工
+
+
+
+#组装为完整的UNet
+class UNet(nn.Module):
+    def __init__(self, base_ch = 64, img_ch = 3, emb_dim = 256):
+        super().__init__()
+        c1, c2, c3, c4 = base_ch, base_ch*2, base_ch*4, base_ch*8  # 64/128/256/512
+        self.time_emb = TimeEmbedding(base_ch)
+        self.act = nn.SiLU()
+
+        #将3通道先化为64通道
+        self.stem = nn.Conv2d(img_ch, c1, 3, padding = 1)
+
+        #下采样 通道翻倍 分辨率减半  每层2个残差块 适量的增大模型 同时时间向量反复注入作为全局变量
+        self.down1_1 = ResBlock(c1, c1, emb_dim)    #64     分辨率 64
+        self.down1_2 = ResBlock(c1, c1, emb_dim)
+        self.down1 = nn.Conv2d(c1, c1, 4, stride = 2, padding = 1)    #  分辨率32
+
+        self.down2_1 = ResBlock(c1, c2, emb_dim)   # 通道提升放这级第一个块 64->128
+        self.down2_2 = ResBlock(c2, c2, emb_dim)
+        self.down2 = nn.Conv2d(c2, c2, 4, stride = 2, padding = 1)    # 分辨率16
+
+        self.down3_1 = ResBlock(c2, c3, emb_dim)    # 128->256
+        self.down3_2 = ResBlock(c3, c3, emb_dim)
+        #此时开始有全局视野
+        self.attn3 = SelfAttention(c3)   #通道256 分辨率16
+        self.down3 = nn.Conv2d(c3, c3, 4, stride = 2, padding = 1)    # 分辨率 8
+
+        self.down4_1 = ResBlock(c3, c4, emb_dim)
+        self.down4_2 = ResBlock(c4, c4, emb_dim)
+        self.attn4 = SelfAttention(c4)             # 8x8
+
+        #最后U形底层 信息最浓缩 再来二层残差块
+        self.mid1 = ResBlock(c4, c4, emb_dim)
+        self.mid_attn = SelfAttention(c4)
+        self.mid2 = ResBlock(c4, c4, emb_dim)
+
+
+
+        #上采样
+        # Upsample 最近邻插值放大 + 3x3卷积(通道 c->c/2)消除插值锯齿
+
+        self.up4 = nn.Sequential(
+            nn.Upsample(scale_factor = 2, mode = 'nearest'),    #分辨率8->16
+            nn.Conv2d(c4, c3, 3, padding = 1)   #通道512->256
+        )
+        self.up3_1 = ResBlock(c3 * 2, c3, emb_dim)    #为什么这里c3*2 哪里cat了 
+        self.up3_2 = ResBlock(c3, c3, emb_dim)
+        self.up_attn3 = SelfAttention(c3)
+
+        self.up2 = nn.Sequential(
+            nn.Upsample(scale_factor = 2, mode='nearest'),
+            nn.Conv2d(c3, c2, 3, padding = 1))       # 分辨率16->32
+        self.up2_1 = ResBlock(c2 * 2, c2, emb_dim)
+        self.up2_2 = ResBlock(c2, c2, emb_dim)
+
+        self.up1 = nn.Sequential(
+            nn.Upsample(scale_factor = 2, mode='nearest'),
+            nn.Conv2d(c2, c1, 3, padding = 1))       # 32->64
+        self.up1_1 = ResBlock(c1 * 2, c1, emb_dim)
+        self.up1_2 = ResBlock(c1, c1, emb_dim)
+
+        self.head_norm = nn.GroupNorm(8, c1)
+        self.head = nn.Conv2d(c1, img_ch, 3, padding = 1)
+
+
+    def forward(self, x, t):
+        # x [B,3,64,64] 加噪图   t [B] 时间步   输出 [B,3,64,64] 噪声预测
+        t_emb = self.time_emb(t)
+
+        #下采样
+        h = self.stem(x)    #通道3->64
+        s1 = self.down1_2(self.down1_1(h, t_emb), t_emb)
+        h = self.down1(s1)  #这里有个疑问 s1之后还没有经过激活函数 却直接拿来卷积 而且我发现很多地方也是这样 这样做不会有点问题吗
+
+        s2 = self.down2_2(self.down2_1(h, t_emb), t_emb)
+        h = self.down2(s2)                                 # [128 16]
+
+        s3 = self.down3_2(self.down3_1(h, t_emb), t_emb)
+        s3 = self.attn3(s3)
+        h = self.down3(s3)                                 # [256 8]
+
+        h = self.down4_2(self.down4_1(h, t_emb), t_emb)
+        h = self.attn4(h)                                  # [512 8]
+
+        # 瓶底
+        h = self.mid2(self.mid_attn(self.mid1(h, t_emb)), t_emb)
+
+        h = self.up4(h)
+        h = torch.cat([h, s3], dim = 1)     #我不理解这里拼接的意义是什么
+        h = self.up_attn3(self.up3_2(self.up3_1(h, t_emb), t_emb))
+
+
+        h = self.up2(h)                                    # [128 32]
+        h = torch.cat([h, s2], dim=1)                      # [256 32]
+        h = self.up2_2(self.up2_1(h, t_emb), t_emb)
+
+        h = self.up1(h)                                    # [64 64]
+        h = torch.cat([h, s1], dim=1)                      # [128 64]
+        h = self.up1_2(self.up1_1(h, t_emb), t_emb)
+
+        return self.head(self.act(self.head_norm(h)))      # [B 3 64 64]
+
 
 if __name__ == '__main__':
     device = 'cuda'
