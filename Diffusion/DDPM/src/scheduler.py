@@ -14,7 +14,7 @@ class Scheduler:
         self.timesteps = timesteps
 
 
-        betas = linear_beta(timesteps = timesteps)
+        betas = linear_beta(timesteps = timesteps)  #1000个加噪强度
         alphas = 1.0 - betas
         # 对应公式 ᾱ_t = α_1 × α_2 × ... × α_t  torch相应函数处理这个过程
         alphas_cumprod = torch.cumprod(alphas, dim=0)
@@ -31,16 +31,17 @@ class Scheduler:
 
 
     def q_sample(self, x0, t, noise):
-        """闭式解加噪（对应公式 x_t = √ᾱ_t·x_0 + √(1-ᾱ_t)·ε）
+        """闭式解加噪（对应公式 x_t = √ᾱ_t·x_0 + √(1-ᾱ_t)·ε） ε即为加到t步的噪声
 
         参数:
-            x0:    [B,3,64,64] 干净图（已归一化到 [-1,1]）
+            x0:    [B,3,64,64] 干净图 已归一化到 [-1,1]
             t:     [B]         每张图各自随机抽的时间步，比如 [327, 891, 45, ...]
             noise: [B,3,64,64] 提前用 torch.randn 生成好的噪声
         返回:
             x_t:   [B,3,64,64] 加噪后的图
         """
         
+        #高级索引 t [B] 将t的每个数作为一个索引返回出B个元素的张量 形状为[B]
         s1 = self.sqrt_alphas_cumprod[t].view(-1, 1, 1, 1)  #[B,1,1,1]
         s2 = self.sqrt_1_minus_alphas_cumprod[t].view(-1, 1, 1, 1)
 
