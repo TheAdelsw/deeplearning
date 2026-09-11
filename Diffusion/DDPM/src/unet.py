@@ -162,7 +162,7 @@ class UNet(nn.Module):
             nn.Upsample(scale_factor = 2, mode = 'nearest'),    #分辨率8->16
             nn.Conv2d(c4, c3, 3, padding = 1)   #通道512->256
         )
-        self.up3_1 = ResBlock(c3 * 2, c3, emb_dim)    #为什么这里c3*2 哪里cat了 
+        self.up3_1 = ResBlock(c3 * 2, c3, emb_dim)    #为了融合同级的上采样和下采样信息
         self.up3_2 = ResBlock(c3, c3, emb_dim)
         self.up_attn3 = SelfAttention(c3)
 
@@ -189,7 +189,7 @@ class UNet(nn.Module):
         #下采样
         h = self.stem(x)    #通道3->64
         s1 = self.down1_2(self.down1_1(h, t_emb), t_emb)
-        h = self.down1(s1)  #这里有个疑问 s1之后还没有经过激活函数 却直接拿来卷积 而且我发现很多地方也是这样 这样做不会有点问题吗
+        h = self.down1(s1)  #
 
         s2 = self.down2_2(self.down2_1(h, t_emb), t_emb)
         h = self.down2(s2)                                 # [128 16]
@@ -205,7 +205,7 @@ class UNet(nn.Module):
         h = self.mid2(self.mid_attn(self.mid1(h, t_emb)), t_emb)
 
         h = self.up4(h)
-        h = torch.cat([h, s3], dim = 1)     #我不理解这里拼接的意义是什么
+        h = torch.cat([h, s3], dim = 1)     #拼接 为了将上采样的浓缩提炼信息和下采样时的粗糙原始信息融合
         h = self.up_attn3(self.up3_2(self.up3_1(h, t_emb), t_emb))
 
 
@@ -256,3 +256,23 @@ if __name__ == '__main__':
 
     # 验证零初始化:训练开始时注意力输出应与输入完全一样
     print("初始时是否等于恒等:", torch.allclose(att(x), x))
+
+
+
+    # ---- 2.4 UNet 整体测试 ----
+    print("\n--- UNet 测试 ---")
+    unet = UNet(base_ch=64).to(device)
+    n = sum(p.numel() for p in unet.parameters())
+    print(f"参数量: {n/1e6:.1f}M")
+
+    x = torch.randn(2, 3, 64, 64, device=device)
+    t = torch.tensor([100, 999], device=device)
+    with torch.no_grad():
+        print("UNet输出:", unet(x, t).shape)   # 期待 [2, 3, 64, 64]
+
+    # 显存压力测试: batch=8 完整前向+反传
+    x = torch.randn(8, 3, 64, 64, device=device)
+    t = torch.randint(0, 1000, (8,), device=device)
+    y = unet(x, t)
+    y.mean().backward()
+    print(f"batch=8 前向+反传峰值显存: {torch.cuda.max_memory_allocated()/1e9:.2f} GB")
