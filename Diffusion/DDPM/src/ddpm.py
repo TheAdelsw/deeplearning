@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 
-#指数滑动平均 将模型的某次训练效果与当前权重的加权平均 使得训练平滑防止抖动
+#指数滑动平均 将影子权重向每次最新的权重缓慢更新 使得训练平滑防止抖动
 class EMA:
     def __init__(self, model, decay = 0.999):
         self.decay = decay

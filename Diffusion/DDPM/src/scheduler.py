@@ -31,7 +31,7 @@ class Scheduler:
 
 
     def q_sample(self, x0, t, noise):
-        """闭式解加噪（对应公式 x_t = √ᾱ_t·x_0 + √(1-ᾱ_t)·ε） ε即为加到t步的噪声
+        """闭式解加噪（对应公式 x_t = √ᾱ_t·x_0 + √(1-ᾱ_t)·ε） ε即为加到t步累计的噪声
 
         参数:
             x0:    [B,3,64,64] 干净图 已归一化到 [-1,1]
@@ -57,10 +57,10 @@ if __name__ == '__main__':
     scheduler = Scheduler(timesteps=1000, device=device)
 
     # 读一张训练集里的图，预处理方式和以后训练时保持一致
-    img = cv2.imread(r"D:\source_data\ImageDataset\simple\seed1001.png")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.imread(r"D:\source_data\anime-face\1.png")   #BGR
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  
     
-    img = cv2.resize(img, (64, 64))                        # [64,64,3] BGR
+    img = cv2.resize(img, (64, 64))                        # [64,64,3] RGB
     img = torch.from_numpy(img).permute(2, 0, 1).float()   # [3,64,64]
     img = (img / 255.0) * 2 - 1                            # [-1,1]
     img = img.unsqueeze(0).to(device)                      # [1,3,64,64]
