@@ -42,7 +42,7 @@ class Tokenizer:
             #例: "Don't stop!" -> ["don", "'", "t", "stop", "!"]
             return re.findall(r"[a-z']+|[.,!?;]", text.lower())
 
-    #扫一遍语料 建立词表
+    #扫一遍语料 建立词表 然后永久存储
     def build(self, token_lists, lang):
         #Counter会自动统计每个token出现的次数 token_lists是很多句token列表的列表
         counter = Counter()
@@ -83,8 +83,11 @@ if __name__ == "__main__":
     en = [tok.tokenize(s, "en") for s in ["hello world", "don't stop!"]]
     tok.build(zh + en, "zh")
 
-    print("zh:", zh)
-    print("en:", en)
+    # c = Counter()
+    # c.update(["你好世界", "今天天气不错"])
+    # print(c)
+    # print("zh:", zh)
+    # print("en:", en)
 
     print("词表大小:", len(tok))
     print("中文切分:", tok.tokenize("你好世界", "zh"))
