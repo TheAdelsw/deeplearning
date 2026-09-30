@@ -28,12 +28,18 @@ LayerNorm归一化 对每个词向量自己的 256 个维度做标准化 即对�
     与中文三层encoder输出的张量的交叉注意力
     AddNorm
     FFN加工
+    AddNorm
 
-三层decoder后得到一个[B, 32, d_model]的输出 这个就是最终的答案 
+三层decoder后得到一个[B, 32, d_model]的输出 这个就是最终的状态 
 
 将这个答案经过一个全连接输出头 转换为 logits[B, 32, V_size]
 根据词表中最可能的词输出 然后将这个输出与一开始的BOS拼接为一段话 继续作为输入重复decoder的过程
 直至输出EOS为止 
+
+
+
+
+训练时 一个批次的不同语句seq长度可能不同 所以需要pad补齐
 
 
 
@@ -127,8 +133,8 @@ class DecoderLayer(nn.Module):
         x = self.addnorm1(x, self.self_attn(x, x, x, self_mask)[0] )
         
         #交叉注意力 Q=英文 K/V=memory, seq_q!=seq_k在这里发生 cross_mask挡中文pad
-        # Q * K^T 再softmax得到 [B, heads, seq_q, seq_k]表示权重 再与V [B, heads, seq_k, d_model]
-        #相乘得到[B, heads, seq_q, d_model]此时英文结合了中文的信息
+        # Q * K^T 再softmax得到 [B, heads, seq_q, seq_k]表示权重 再与V [B, heads, seq_k, d_k]
+        #相乘得到[B, heads, seq_q, d_k]此时英文结合了中文的信息
         x = self.addnorm2(x, self.cross_attn(x, memory, memory, cross_mask)[0] )
 
         #FFN加工
@@ -143,7 +149,7 @@ class DecoderLayer(nn.Module):
 #全部组装
 class Transformer(nn.Module):
     def __init__(self, src_vocab, tgt_vocab, d_model = 256, heads = 8,
-                 d_ff = 1024, num_layer = 3, max_len = 64, dropout = 0.1):
+                 d_ff = 1024, num_layers = 3, max_len = 64, dropout = 0.1):
         super().__init__()
 
         #两套独立词嵌入 中文词表和英文词表
@@ -156,28 +162,35 @@ class Transformer(nn.Module):
         self.decoders = nn.ModuleList([
             DecoderLayer(d_model, heads, d_ff, dropout) for _ in range(num_layers)])
 
-        #输出层 给英文词表每个词打分 无softmax
+        #输出层 给英文词表每个词打分 无softmax  因为交叉熵损失自带softmax
         self.out = nn.Linear(d_model, tgt_vocab)
 
 
-    def forward(self, src_ids, tgt_ids, src_masks, tgt_mask):
+    def forward(self, src_ids, tgt_ids, src_mask, tgt_mask):
         #src_ids: [B, src_seq] 中文编号   tgt_ids: [B, tgt_seq] 英文编号
-
+        #设置一个默认的语句长度 即src_seq和tgt_seq 多的截断 少的补pad
         B, T = tgt_ids.shape
 
         #对于英文自注意力 训练时需因果掩码
-        #tril取下三角含对角 位置 j <= i才可以看
+        #tril取下三角含对角 位置 j <= i才可以看 形状为[1, 1, T, T]
         causal = torch.tril(torch.ones(T, T, dtype=torch.bool, device=tgt_ids.device)).unsqueeze(0).unsqueeze(0)
-        tgt_pad = tgt_mask.unsqueeze(1)     #[B,1,1,T] 广播到每个query行
+        tgt_pad = tgt_mask.unsqueeze(1)     #[B,1,1,T(tgt_seq)] 广播到每个query行  即对于询问行的每个词 其问的后面几列都是pad
         src_pad = src_mask.unsqueeze(1)     #[B,1,1,src_seq]
 
 
-        #decoder自注意力 词不看未来
-        self_mask = tgt_mask & causal
+        #decoder自注意力 词是真 且 不看未来
+        self_mask = tgt_pad & causal
+        """
+                标记pad                 标记未来词
+             _ _ _ ... pad           _ _ _ ... pad
+        seq |1 1 1      0           |1 0 0
+            |1 1 1      0       &   |1 1 0
+            |1 1 1      0           |1 1 1
+        """
         cross_mask = src_pad
 
         #encoder三层
-        x = self.src_emb(src_ids)
+        x = self.src_emb(src_ids)   # [B, seq, d_model]
         for enc in self.encoders:
             x = enc(x, src_pad)
 
@@ -191,3 +204,19 @@ class Transformer(nn.Module):
         
         #输出[B, T, tgt_vocab]  
         return self.out(y)
+
+
+
+if __name__ == "__main__":
+    model = Transformer(src_vocab=100, tgt_vocab=120)
+    print("参数量:", sum(p.numel() for p in model.parameters()) / 1e6, "M")
+
+    src = torch.randint(4, 100, (2, 7))     #两句中文 各7个token(从4开始避开特殊符号)
+    tgt = torch.randint(4, 120, (2, 9))     #两句英文 各9个token
+
+    src_mask = torch.ones(2, 1, 7, dtype=torch.bool)
+    tgt_mask = torch.ones(2, 1, 9, dtype=torch.bool)
+    tgt_mask[1, :, 6:] = False              #第二句最后3个位置假装是pad
+
+    logits = model(src, tgt, src_mask, tgt_mask)
+    print("输出形状:", logits.shape)          #预期 [2, 9, 120]

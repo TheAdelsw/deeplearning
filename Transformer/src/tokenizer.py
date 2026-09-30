@@ -66,10 +66,11 @@ class Tokenizer:
         #get(t, UNK的编号) 查不到的词(测试时遇到生词)返回UNK的编号
         return [self.token2id.get(t, self.token2id[UNK]) for t in tokens]
 
-    def decode(self, ids):
+    def decode(self, ids, sep = ""):
         tokens = [self.id2token[i] for i in ids]
         #根据编号返回对应文字token 并且忽略特殊字符
-        return "".join(t for t in tokens if t not in (PAD, BOS, EOS, UNK))
+        #sep 参数 中文用默认空串 英文传空格
+        return sep.join(t for t in tokens if t not in (PAD, BOS, EOS, UNK))
 
     def __len__(self):
         return len(self.id2token)
