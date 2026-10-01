@@ -25,6 +25,9 @@ from tokenizer import Tokenizer, PAD, BOS, EOS
 MAX_LEN = 32        #一句中最多允许有32个token
 
 
+
+
+
 class TranslationDataset(Dataset):
     def __init__(self, path):
         en_sents, zh_sents = [], []

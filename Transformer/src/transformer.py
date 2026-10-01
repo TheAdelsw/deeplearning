@@ -207,6 +207,33 @@ class Transformer(nn.Module):
 
 
 
+
+#增加载入模型和保存模型的方法
+def save_model(path, model, optimizer):
+    torch.save({
+                "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                }, path)
+    
+    print(f"模型已保存至{path}")
+
+
+
+def load_model(path, model, optimizer):
+    ckpt = torch.load(path)
+
+    model.load_state_dict(ckpt["model"])
+    optimizer.load_state_dict(ckpt["optimizer"])
+    print("模型已成功载入")
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
     model = Transformer(src_vocab=100, tgt_vocab=120)
     print("参数量:", sum(p.numel() for p in model.parameters()) / 1e6, "M")

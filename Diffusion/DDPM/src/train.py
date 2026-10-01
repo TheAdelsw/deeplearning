@@ -61,7 +61,7 @@ def load_checkpoint(path, unet, optimizer, ema, scaler):
     ema.shadow = ckpt['ema_shadow']
     scaler.load_state_dict(ckpt['scaler'])
 
-    return ckpt['cnt']  #这边返回cnt又是代表什么
+    return ckpt['cnt']  
 
 
 def train(ddpm, unet, ema, optimizer, scaler, dataloader, device,
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     epochs = 100
 
     sch = Scheduler(timesteps = 1000, device = device)
-    unet = UNet(base_ch = 64).to(device)    #这里的.to(device)是把这个类的实例放到显存上吗
+    unet = UNet(base_ch = 64).to(device)    
     ddpm = DDPM(unet, sch, device)
     ema = EMA(unet, decay = 0.999)
 

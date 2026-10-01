@@ -8,7 +8,12 @@ logits 是 [B, max_len, Vocab]   答案是[B, max_len]
 
 ignore_index=0 PAD 编号是 0 即忽略补齐部分经过网络产生的值
 
-交叉熵损失要的形状是 [N, C] 打分行 + [N, ]答案
+交叉熵损失要的形状是 [N, C] 打分行 + [N, ]答案  每个分数送进损失函数中-ln(x)中 查看选出正确答案的概率造成的损失
+
+[N, C] 表示N个词每次预测C个可能词每个的logit [N,]答案是存储真正答案词的编号(假设idx) 然后直接在某个词的C个预测中取到 p[idx]
+再送进损失函数中计算损失 
+
+即答案的数字=取概率的下标
 
 
 
@@ -21,17 +26,21 @@ from torch.utils.data import DataLoader, random_split
 
 from data import TranslationDataset
 from transformer import Transformer
+from transformer import save_model
+from transformer import load_model
 from tokenizer import PAD
 
+import os
 
 
 #配置 超参数
 BATCH = 64
-EPOCHS = 30
-LR = 3e-4
+EPOCHS = 60
+LR = 3e-5
 N_VAL = 1000        #留1000句做验证集, 看过拟合
 CLIP = 1.0          #梯度裁剪阈值
-CKPT = "checkpoint.pt"
+CKPT = r"Transformer\model\checkpoint.pt"
+
 
 
 
@@ -45,6 +54,8 @@ def compute_loss(model, batch, criterion, device):
     tgt_mask = batch["tgt_mask"].to(device)
 
     logits = model(src, tgt_in, src_mask, tgt_mask)      #[B,32,Vocab]
+    #此时的logits输出是每个词对下一个词的预测打分 推理时只需要考虑当前输入的最后一个词输出的概率即可
+
 
     #摊平 [B*32, Vocab]打分行   +   [B*32] 答案
 
@@ -68,27 +79,19 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     criterion = nn.CrossEntropyLoss(ignore_index=ds.en_tok.token2id[PAD])
-
-
     #ignore_index 答案是PAD(编号0)的位置不计损失也不产生梯度
-    for epoch in range(1, EPOCHS + 1):
-        model.train()       #使用dropout 训练模式用
-        total, steps = 0.0, 0
-
-        for step, batch in enumerate(train_loader, 1):
-            loss = compute_loss(model, batch, criterion, device)
-
-            optimizer.zero_grad()              #清掉上一步的旧梯度
-            loss.backward()                    #反向传播算新梯度
-            torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)  #防梯度爆炸
-            optimizer.step()                   #更新权重
-
-            total += loss.item()
-            steps += 1
-            if step % 100 == 0:
-                print(f"ep{epoch} step{step}/{len(train_loader)} loss={loss.item():.3f}")
 
 
+    #先加载模型 没有就重新训练
+    if os.path.exists(CKPT):
+        print("找到模型,加载中...")
+        load_model(CKPT, model, optimizer)
+    else:
+        print("未找到模型, 重新开始训练")
+
+
+    val_need = True
+    if val_need :
         #验证
         model.eval()                           #dropout关 切换推理模式
         vtotal, vsteps = 0.0, 0
@@ -98,14 +101,58 @@ if __name__ == "__main__":
                 vsteps += 1
         val_loss = vtotal / vsteps
 
-        print(f"[epoch {epoch}] train_loss={total/steps:.3f} "
-              f"val_loss={val_loss:.3f} ppl={torch.exp(torch.tensor(val_loss)):.1f}")
+        print(f"val_loss={val_loss:.3f} ppl={torch.exp(torch.tensor(val_loss)):.1f}")
 
-        #每30轮覆盖保存
-        if epoch % 30 == 0:
-            torch.save({
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "epoch": epoch,
-            }, CKPT)
+        exit()
+
+
+
+
+
+
+
+
+    #训练部分
+    try:
+        for epoch in range(1, EPOCHS + 1):
+            model.train()       #使用dropout 训练模式用
+            total, steps = 0.0, 0
+
+            for step, batch in enumerate(train_loader, 1):  #enumerate(train_loader, 1)表示序号从1开始(不是索引下标)
+                loss = compute_loss(model, batch, criterion, device)
+
+                optimizer.zero_grad()              #清掉上一步的旧梯度
+                loss.backward()                    #反向传播算新梯度
+                torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)  #防梯度爆炸
+                optimizer.step()                   #更新权重
+
+                total += loss.item()
+                steps += 1
+                if step % 100 == 0:
+                    print(f"ep{epoch} step{step}/{len(train_loader)} loss={loss.item():.3f}")
+
+
+            # #验证
+            # model.eval()                           #dropout关 切换推理模式
+            # vtotal, vsteps = 0.0, 0
+            # with torch.no_grad():                  #不需要梯度, 省显存提速
+            #     for batch in val_loader:
+            #         vtotal += compute_loss(model, batch, criterion, device).item()
+            #         vsteps += 1
+            # val_loss = vtotal / vsteps
+
+            # print(f"[epoch {epoch}] train_loss={total/steps:.3f} "
+            #       f"val_loss={val_loss:.3f} ppl={torch.exp(torch.tensor(val_loss)):.1f}")
+
+            #每30轮覆盖保存
+            if epoch % 30 == 0:
+                save_model(CKPT, model, optimizer)
+    
+    except KeyboardInterrupt:
+        print("\n手动终止训练, 保存进度")
+        save_model(CKPT, model, optimizer)
+        
+
+
+    
 
