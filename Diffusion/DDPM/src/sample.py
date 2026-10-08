@@ -43,3 +43,5 @@ if __name__ == '__main__':
 
     vutils.save_image(grid, out_file)
     print(f"已保存 {n} 张生成图: {out_file}")
+
+    
