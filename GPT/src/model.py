@@ -49,20 +49,27 @@ class GPT(nn.Module):
 
 
 
-    def forward(self, x):
+    def forward(self, x, cache = None):
         #x: [B, seq]     表示词的id
 
         B, seq_len = x.shape
-        mask = torch.tril(torch.ones(seq_len, seq_len, dtype = torch.bool, device = x.device)).unsqueeze(0).unsqueeze(0)
+        if cache is None:
+            mask = torch.tril(torch.ones(seq_len, seq_len, dtype = torch.bool, device = x.device)).unsqueeze(0).unsqueeze(0)
+            pos = 0
+        else:
+            mask = None
+            pos = cache[0][0].size(2)   #cache形状 [K, V] K中形状为[B, heads, seq, d_k]
 
-        x = self.embedding(x)
+        x = self.embedding(x, pos)
 
-        for blk in self.blocks:
-            x = blk(x, mask)
+        new_cache = []  #记录每一层的block的K V
+        for blk, blk_cache in zip(self.blocks, cache if cache is not None else [None] * len(self.blocks)):
+            x, blk_new = blk(x, mask, blk_cache)
+            new_cache.append(blk_new)
         
         x = self.final_layernorm(x)
         logits = x @ self.embedding.tok_emb.weight.T    #词嵌入矩阵的转置
-        return logits
+        return logits, new_cache
 
 
 
@@ -91,19 +98,26 @@ def load_model(path, model, optimizer):
 
 
 if __name__ == '__main__':
-    V = 2278                     #BPE的真实词表大小
+    V = 4502                     #BPE的真实词表大小
     model = GPT(vocab_size=V, heads=8, d_model=256, d_ff=1024, num_layers=4, max_len=128)
     model.eval()
 
     x = torch.randint(0, V, (2, 16))        #随机id 模拟BPE编码后的输入
-    logits = model(x)
+    logits, cache = model(x)
     print("logits形状:", logits.shape)       #预期 [2, 16, 2278]
 
     #causal验证 篡改位置8之后, 前8个位置的logits必须纹丝不动
+    step_logits, step_cache = model(x[:, :1])
+    steps = step_logits                                  #先把第1个token的输出存下来
+    for t in range(1, x.size(1)):
+        step_logits, step_cache = model(x[:, t:t+1], step_cache)
+        steps = torch.cat([steps, step_logits], dim = 1) #每步新logits拼到序列上
+    print("cache等价性(应≈0):", (logits - steps).abs().max().item())
+
+
     x2 = x.clone()
     x2[:, 8:] = 5
-    l2 = model(x2)
-    
+    l2, _ = model(x2)
 
     print("前8位置差异(应≈0):", (logits[:, :8] - l2[:, :8]).abs().max().item())
 

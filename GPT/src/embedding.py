@@ -44,11 +44,11 @@ class Embedding(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
 
-    def forward(self, x):
+    def forward(self, x, pos = 0):  #pos是位置偏移 表示x中第一个token的绝对位置 在KV缓存下用于推理 保证词的位置
         #x形状为 [B, seq_len]
         #查表得到[B, seq_len, d_model]
         x = self.tok_emb(x) * math.sqrt(self.d_model)   #乘以sqrt放大词向量
-        x = x + self.pe[: x.size(1)]
+        x = x + self.pe[pos : pos + x.size(1)]
 
         return self.dropout(x)
 

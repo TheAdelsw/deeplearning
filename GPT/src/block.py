@@ -51,19 +51,28 @@ class MultiHeadAttention(nn.Module):
         x = x.transpose(1, 2)               #[B, heads, seq_len, d_k]
         return x
 
-    def forward(self, x, mask):
+    def forward(self, x, mask, cache = None):
         #x [B, seq, d_model]
         B = x.size(0)
 
-        Q = self.split_heads(self.W_q(x))    #[B, heads, seq, d_k]
-        K = self.split_heads(self.W_k(x))    #[B, heads, seq, d_k]
-        V = self.split_heads(self.W_v(x))    #[B, heads, seq, d_k]
+        Q_new = self.split_heads(self.W_q(x))    #[B, heads, seq, d_k]
+        K_new = self.split_heads(self.W_k(x))    #[B, heads, seq, d_k]
+        V_new = self.split_heads(self.W_v(x))    #[B, heads, seq, d_k]
 
-        attn = attention(Q, K, V, mask=mask)
+        if cache is not None:   #此时推理 x是单个token 最后返回的也是单个token的x值
+            past_k, past_v = cache  #[B, heads, seq, d_k]   在dim=2即seq维拼接
+            K = torch.cat([past_k, K_new], dim = 2)
+            V = torch.cat([past_v, V_new], dim = 2)
+        else:
+            K, V = K_new, V_new
+
+
+
+        attn = attention(Q_new, K, V, mask=mask)
 
         attn = attn.transpose(1, 2).contiguous().view(B, -1, self.heads * self.d_k)
 
-        return self.W_o(attn)
+        return self.W_o(attn), (K, V)   #输出注意力和缓存KV
 
 
 """
@@ -99,10 +108,11 @@ class Block(nn.Module):
 
         
 
-    def forward(self, x, mask):
-        x = x + self.dropout(self.attn(self.ln1(x), mask))
+    def forward(self, x, mask, cache = None):
+        attn, new_cache = self.attn(self.ln1(x), mask, cache)
+        x = x + self.dropout(attn)
         x = x + self.dropout(self.ffn(self.ln2(x)))
-        return x
+        return x, new_cache
         
 
 
@@ -122,12 +132,12 @@ if __name__ == '__main__':
     x = torch.randn(B, seq, d_model)
     mask = torch.tril(torch.ones(seq, seq))   #下三角1=准看, 上三角0=盖住
 
-    out = blk(x, mask)
+    out, cache = blk(x, mask)
     print("输出形状:", out.shape)              #预期 [2, 10, 256]
 
     #causal验证: 篡改位置2之后的输入, 位置0、1的输出必须纹丝不动
     x2 = x.clone()
     x2[:, 2:] = 999.0                         #未来位置被污染
-    out2 = blk(x2, mask)
+    out2, cache = blk(x2, mask)
     print("前2位置差异(应≈0):", (out[:, :2] - out2[:, :2]).abs().max().item())
     print("位置2差异(应>0):  ", (out[:, 2] - out2[:, 2]).abs().max().item())
