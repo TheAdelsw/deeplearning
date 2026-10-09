@@ -72,8 +72,8 @@ if __name__ == '__main__':
     bpe = BPE(8192)
     bpe.load(r'GPT\dataset\bpe.json')     #加载上次训练好的词表 —— 用load, 千万别再train(会覆盖bpe.json)
 
-    train_ds = FictionDataset(bpe, window_size = 128, path = r'GPT\dataset\corpus.txt', split = 'train')
-    val_ds   = FictionDataset(bpe, window_size = 128, path = r'GPT\dataset\corpus.txt', split = 'val')
+    train_ds = FictionDataset(bpe, window_size = 128, path = r'GPT\dataset\corpus2.txt', split = 'train')
+    val_ds   = FictionDataset(bpe, window_size = 128, path = r'GPT\dataset\corpus2.txt', split = 'val')
 
     x, y = train_ds[0]                    #抽一个样本看
     print("x形状:", x.shape, " y形状:", y.shape)        #都是 [128]

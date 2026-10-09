@@ -125,7 +125,7 @@ class BPE:
 
 
 if __name__ == "__main__":
-    text = open(r"GPT\dataset\corpus.txt", encoding="utf-8").read()
+    text = open(r"GPT\dataset\corpus2.txt", encoding="utf-8").read()
     bpe = BPE(vocab_size=8192)
     bpe.train(text, save_path=r"GPT\dataset\bpe.json")
 

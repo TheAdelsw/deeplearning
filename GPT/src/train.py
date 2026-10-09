@@ -28,18 +28,18 @@ from model import GPT, save_model, load_model
 
 #超参数
 
-VOCAB_SIZE = 2278        #BPE真实词表大小
-D_MODEL    = 256
-HEADS      = 8
-D_FF       = 1024
-N_LAYERS   = 4
+VOCAB_SIZE = 4502        #BPE真实词表大小
+D_MODEL    = 128
+HEADS      = 4
+D_FF       = 512
+N_LAYERS   = 3
 BLOCK_SIZE = 128        #即上下文长度; 位置编码的行数; 滑动窗口的大小
 DROPOUT    = 0.1
 BATCH_SIZE = 32
 LR         = 3e-4        #Adam学习率 小GPT推荐
-EPOCHS     = 40
+EPOCHS     = 60
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'   
-PATH = r'GPT\dataset\corpus.txt'
+PATH = r'GPT\dataset\corpus2.txt'
 MODEL_PATH = r'GPT\model\mygpt-1.pt'
 
 def main():
@@ -65,6 +65,7 @@ def main():
 
 
     try:
+        best_val = float('inf')
         for epoch in range(1, EPOCHS + 1):
             model.train()
             total = 0.0
@@ -87,7 +88,7 @@ def main():
 
             if epoch % 20 == 0: #每一定轮数后保存和验证模型
                 
-                save_model(MODEL_PATH, model, optimizer)
+                #save_model(MODEL_PATH, model, optimizer)
 
                 model.eval()
                 vtotal = 0.0
@@ -101,13 +102,20 @@ def main():
                     val_loss   = vtotal / len(val_ds)
                     print(f"val {val_loss:.3f} | val ppl {math.exp(val_loss):.1f}")
 
+                    if val_loss < best_val:
+                        best_val = val_loss
+                        save_model(MODEL_PATH, model, optimizer)
+
             #困惑度ppl = exp(loss) 表示模型在多少个词中选择
             print(f"epoch {epoch:3d} | train {train_loss:.3f} ")
+        
+        #训练完成 保存进度
+        #save_model(MODEL_PATH, model, optimizer)
 
 
     except KeyboardInterrupt:
         print("\n手动终止训练, 保存进度")
-        save_model(MODEL_PATH, model, optimizer)
+        #save_model(MODEL_PATH, model, optimizer)
 
 
 
