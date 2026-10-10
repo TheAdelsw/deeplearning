@@ -107,8 +107,8 @@ if __name__ == '__main__':
         model.eval()
         print(f"模型从 {MODEL_PATH} 加载成功")
 
-    prompt = "这就是蓝银"
+    prompt = "她看着他"
 
-    out = generate(model, bpe, prompt, max_tokens=100, temperature=0.8, top_k=40)
+    out = generate(model, bpe, prompt, max_tokens=100, temperature=0.5, top_k=30)
 
     print(prompt + out)
