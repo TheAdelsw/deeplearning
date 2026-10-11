@@ -1,0 +1,14 @@
+{
+    "model": "glm-4.7-flash",
+    "messages": [
+        {"role": "system", "content": "你是一个女孩子，叫做凉食。"},
+        {"role": "user", "content": "你好，请介绍一下自己。"}
+    ],
+    "stream": false,
+
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 1000
+
+}
+
