@@ -11,7 +11,7 @@ import requests
 
 
 from config import API_KEY, MODEL_NAME, URL, PERSONALITY_TRAIT
-
+from speaker import speak
 
 
 
@@ -44,7 +44,7 @@ payload = {
 }
 
 
-MAX_ROUNDS = 3
+MAX_ROUNDS = 30
 
 #存储对话
 def build_messages(history, role, text):
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
         build_messages(history, "assistant", out)
         print(out)
-
+        speak(out)
     
 
     # response = requests.post(URL, headers=headers, json=payload, timeout=60)    #发送请求 并且返回接收到的所有信息
