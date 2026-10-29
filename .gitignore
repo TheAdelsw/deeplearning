@@ -16,3 +16,4 @@
 /VtuberPart/config.py
 /VtuberPart/voice.mp3
 /VtuberPart/vts_token.txt
+__pycache__
