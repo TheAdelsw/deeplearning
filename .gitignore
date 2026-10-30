@@ -13,7 +13,7 @@
 /GPT/model
 
 
-/VtuberPart/config.py
+/VtuberPart/src/config.py
 /VtuberPart/voice.mp3
 /VtuberPart/vts_token.txt
 __pycache__
