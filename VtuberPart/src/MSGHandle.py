@@ -19,13 +19,24 @@ class MSGHandle:
         self.memory = [{"role" : "system", "content" : PERSONALITY_TRAIT}]
 
     #供用户主动输入消息的接口
-    def UserSay(self, text):
+    def UserSay(self, text, stream = False):
         msg = {"role" : "user", "content" : text}
         self.memory.append(msg)
 
-        out = self.llmbrain.call_llm(self.memory)
-        response = {"role" : "assistant", "content" : out['content']}
+        if stream == False:
+            out = self.llmbrain.call_llm(self.memory)
+            print(out)
+        else:
+            out = ""
+            piece_stream = self.llmbrain.call_llm_stream(self.memory)
+            for piece in piece_stream:
+                print(piece, end = "", flush = True)
+                out += piece
+            
+            print()
+            
         
+        response = {"role" : "assistant", "content" : out}
         
         self.memory.append(response)
 

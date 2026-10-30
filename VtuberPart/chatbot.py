@@ -10,8 +10,8 @@ import requests
 
 
 
-from config import API_KEY, MODEL_NAME, URL, PERSONALITY_TRAIT
-from speaker import speak
+from src.config import API_KEY, MODEL_NAME, URL, PERSONALITY_TRAIT
+# from speaker import speak
 
 
 
@@ -113,24 +113,34 @@ def call_llm(messages):
 
 if __name__ == '__main__':
 
-    history = []
+    # x = [1, 2, 3, 4 ,5]
+    # print(x[:-4]) 
+
+    import time
+    for i in range(101):
+        print(f"\r加载中: {i}%", end="", flush=False)
+        time.sleep(0.03)
+    print("\n完成")
 
 
-    while(True):
-        user = input("<<< ")
-        if not user:
-            continue
-        if user == "/exit":
-            break
+    # history = []
 
-        messages = build_messages(history, "user" , user)
-        out = call_llm(messages)
-        if out is None:
-            continue
 
-        build_messages(history, "assistant", out)
-        print(out)
-        speak(out)
+    # while(True):
+    #     user = input("<<< ")
+    #     if not user:
+    #         continue
+    #     if user == "/exit":
+    #         break
+
+    #     messages = build_messages(history, "user" , user)
+    #     out = call_llm(messages)
+    #     if out is None:
+    #         continue
+
+    #     build_messages(history, "assistant", out)
+    #     print(out)
+    #     speak(out)
     
 
     # response = requests.post(URL, headers=headers, json=payload, timeout=60)    #发送请求 并且返回接收到的所有信息
