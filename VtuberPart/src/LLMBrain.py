@@ -82,6 +82,10 @@ class LLMBrain:
             if not line:
                 continue
 
+            # print(f"此时chunk为: {chunk}")
+            # print(f"此时line为: {line}")
+
+
             if "[DONE]" in line:
                 break
 
