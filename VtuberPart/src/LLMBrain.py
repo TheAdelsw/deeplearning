@@ -6,11 +6,19 @@
 
 """
 
+import requests
+import json
 
 from config import URL, API_KEY, MODEL_NAME
 
-import requests
-import json
+
+
+
+#import的其他文件 后续考虑解耦
+
+from tools import TOOLS, TOOL_FUNCTIONS
+
+
 
 
 headers = {
@@ -29,6 +37,8 @@ class LLMBrain:
         send = {
             "model": MODEL_NAME,
             "messages": messages,
+            # "tools" : TOOLS,
+
             "stream": False,
 
             "temperature": 0.7,
@@ -47,10 +57,12 @@ class LLMBrain:
             else:
                 break
 
+        #转为字典
         data = response.json()
-        msg = data['choices'][0]['message']
+        # msg = data['choices'][0]['message']
 
-        return msg['content']
+        #原样返回 由消息处理部分处理
+        return data
 
 
 
@@ -98,10 +110,8 @@ class LLMBrain:
             #字符串转为字典
             chunk = json.loads(line)
 
-            piece = chunk["choices"][0]["delta"].get("content")
-
-            if piece:
-                yield piece
+            # piece = chunk["choices"][0]["delta"].get("content")
+            yield chunk
             
 
         

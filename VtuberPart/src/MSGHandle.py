@@ -25,13 +25,17 @@ class MSGHandle:
 
         if stream == False:
             out = self.llmbrain.call_llm(self.memory)
+            out = out['choices'][0]['message']['content']
             print(out)
         else:
             out = ""
             piece_stream = self.llmbrain.call_llm_stream(self.memory)
             for piece in piece_stream:
-                print(piece, end = "", flush = True)
-                out += piece
+
+                content = piece['choices'][0]['delta'].get('content')
+                if content:
+                    print(content, end = "", flush = True)
+                    out += content
             
             print()
             
