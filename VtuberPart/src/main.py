@@ -31,7 +31,7 @@ if __name__ == '__main__':
             print(msghandle.memory)
             continue
 
-        out = msghandle.UserSay(user, stream=True)
+        out = msghandle.UserSay(user, stream=False)
         
 
 

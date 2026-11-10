@@ -1,14 +1,10 @@
 """
-各种工具统一放在一个文件中
 
+时间查找工具
 
-
-后续可能会分离优化
 
 
 """
-
-
 
 
 from datetime import datetime
@@ -19,12 +15,13 @@ def get_time():
 
 
 
-TOOL_FUNCTIONS = {
-    "get_time" : get_time
-}
 
-TOOLS = [
-    {
+
+
+
+
+
+tool = {
         "type" : "function",
         "function" : {
             "name": "get_time",
@@ -40,15 +37,18 @@ TOOLS = [
         }
 
 
-
     }
-]
+
+
+
+
 
 
 
 if __name__ == "__main__":
 
-    print(TOOL_FUNCTIONS["get_time"]())
 
-
+    print(get_time())
     
+
+

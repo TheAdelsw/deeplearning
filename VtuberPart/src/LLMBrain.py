@@ -16,7 +16,6 @@ from config import URL, API_KEY, MODEL_NAME
 
 #import的其他文件 后续考虑解耦
 
-from tools import TOOLS, TOOL_FUNCTIONS
 
 
 
@@ -32,12 +31,12 @@ class LLMBrain:
         pass
 
 
-    def call_llm(self, messages):
+    def call_llm(self, messages, tools):
 
         send = {
             "model": MODEL_NAME,
             "messages": messages,
-            # "tools" : TOOLS,
+            "tools" : tools,
 
             "stream": False,
 

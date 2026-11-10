@@ -1,0 +1,44 @@
+"""
+各种工具统一放在一个文件中
+
+tools工具基类 通过这个模块调用所有子工具 文件
+
+
+"""
+
+
+
+
+#此处import子工具
+import tools.get_time as get_time
+
+
+
+
+
+
+TOOL_FUNCTIONS = {
+    "get_time" : get_time.get_time
+}
+
+TOOLS = [
+    get_time.tool,
+]
+
+
+def call_tool(tool_name):
+    if tool_name in TOOL_FUNCTIONS:
+        return TOOL_FUNCTIONS[tool_name]()
+    else :
+        return "TOOL NOTFOUND"
+
+    
+
+
+if __name__ == "__main__":
+
+    # print(TOOL_FUNCTIONS["get_time"]())
+
+    print(call_tool(tool_name="get_time"))
+
+    
