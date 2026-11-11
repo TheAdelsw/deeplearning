@@ -9,7 +9,7 @@
 
 from LLMBrain import LLMBrain
 from MSGHandle import MSGHandle
-
+from tools.tools import ToolLibrary
 
 from config import PERSONALITY_TRAIT
 
@@ -18,7 +18,8 @@ from config import PERSONALITY_TRAIT
 
 if __name__ == '__main__':
     brain = LLMBrain()
-    msghandle = MSGHandle(brain)
+    toolkit = ToolLibrary()
+    msghandle = MSGHandle(brain, toolkit)
     
     # print(msghandle.memory)
     while(True):
@@ -31,7 +32,7 @@ if __name__ == '__main__':
             print(msghandle.memory)
             continue
 
-        out = msghandle.UserSay(user, stream=False)
+        out = msghandle.UserSay(user, stream=True)
         
 
 

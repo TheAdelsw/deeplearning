@@ -31,12 +31,12 @@ class LLMBrain:
         pass
 
 
-    def call_llm(self, messages, tools):
+    def call_llm_nostream(self, messages, tools=None):
 
         send = {
             "model": MODEL_NAME,
             "messages": messages,
-            "tools" : tools,
+            "tools" : tools if tools else None,
 
             "stream": False,
 
@@ -66,12 +66,13 @@ class LLMBrain:
 
 
     #用了yield 转化为生成器函数 每次解析出一部分yield part出去 就暂停
-    def call_llm_stream(self, messages):
+    def call_llm_stream(self, messages, tools=None):
         send = {
             "model": MODEL_NAME,
             "messages": messages,
             "stream": True,
-
+            "tools" : tools if tools else None,
+            
             "temperature": 0.7,
             "top_p": 0.9,
             "max_tokens": 100000,
