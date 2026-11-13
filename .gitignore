@@ -13,7 +13,10 @@
 /GPT/model
 
 
-/VtuberPart/src/config.py
-/VtuberPart/voice.mp3
-/VtuberPart/vts_token.txt
+/Vtuber/src/core/config.py
+
 __pycache__
+*.egg-info/
+*.py[cod]
+build/
+dist/

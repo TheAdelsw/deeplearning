@@ -11,9 +11,9 @@ import json
 
 
 #此处import子工具
-import tools.get_time as get_time
-import tools.get_random_number as get_random_number
-
+import core.tools.get_time as get_time
+import core.tools.get_random_number as get_random_number
+import core.tools.save_memory as save_memory
 
 
 
@@ -24,12 +24,17 @@ class ToolLibrary :
         self.TOOLS = [
             get_time.tool,
             get_random_number.tool,
+
+
+            save_memory.tool,
         ]
 
         #存储工具调用方法
         self.TOOL_FUNCTIONS = {
             "get_time" : get_time.get_time,
             "get_random_number" : get_random_number.get_random_number,
+
+            "save_memory" : save_memory.save_memory,
         }
     
 

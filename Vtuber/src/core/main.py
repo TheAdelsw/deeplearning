@@ -7,16 +7,15 @@
 
 
 
-from LLMBrain import LLMBrain
-from MSGHandle import MSGHandle
-from tools.tools import ToolLibrary
+from core.LLMBrain import LLMBrain
+from core.MSGHandle import MSGHandle
+from core.tools.tools import ToolLibrary
 
-from config import PERSONALITY_TRAIT
-
-
+from core.config import PERSONALITY_TRAIT
 
 
-if __name__ == '__main__':
+
+def main():
     brain = LLMBrain()
     toolkit = ToolLibrary()
     msghandle = MSGHandle(brain, toolkit)
@@ -33,7 +32,12 @@ if __name__ == '__main__':
             continue
 
         out = msghandle.UserSay(user, stream=True)
-        
+
+
+
+if __name__ == '__main__':
+
+    main()
 
 
 

@@ -19,7 +19,7 @@
 
 """
 
-from config import PERSONALITY_TRAIT
+from core.config import PERSONALITY_TRAIT
 # from tools.tools import TOOLS, call_tool
 
 

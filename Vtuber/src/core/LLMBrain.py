@@ -9,7 +9,7 @@
 import requests
 import json
 
-from config import URL, API_KEY, MODEL_NAME
+from core.config import URL, API_KEY, MODEL_NAME
 
 
 

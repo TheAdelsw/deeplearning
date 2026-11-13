@@ -1,0 +1,42 @@
+#项目toml
+
+
+
+
+#这部分是告诉pip 使用什么版本进行安装
+[build-system]
+requires = ["setuptools>=64"]            # 64 是支持可编辑安装新标准(PEP 660)的最低版本
+build-backend = "setuptools.build_meta"  # 安装的"编号"，pip 按这个名字调用
+
+
+#项目元信息
+[project]
+name = "vtuber"                # pip 眼里的名字（pip show vtuber），建议和 import 名一致
+version = "0.1.0"              # 语义化版本：主.次.修订
+description = "AI VTuber!"
+requires-python = ">=3.10"     # 低于此版本的 Python 直接拒绝安装
+
+# 依赖清单 —— 相当于 CMake 的 find_package；以前散落在脑记忆里的全列在这
+dependencies = [
+    "requests>=2.31",
+    # "edge-tts",
+    # "pygame>=2.5",
+    # 按你实际用到的补全；>= 后面是"至少这个版本"
+]
+
+
+
+
+#命令行入口
+# 装完后 在任何目录敲 vtuber 等于运行主程序
+# 前提：main.py 里把启动逻辑包成 def main(): 函数
+[project.scripts]
+vtuber = "core.main:main"
+
+
+
+
+[tool.setuptools.packages.find]
+where = ["src"]    # 从 src/ 目录下找包 —— src-layout 的关键一句
+
+
