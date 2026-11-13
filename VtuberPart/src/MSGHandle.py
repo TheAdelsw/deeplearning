@@ -77,8 +77,9 @@ class MSGHandle:
             for tool in msg['tool_calls']:
                 tool_name = tool['function']['name']
                 tool_id = tool['id']
-                tool_result = self.toolkit.call_tool(tool_name=tool_name)
-                print(f"[工具调用] {tool_name} -> {tool_result}")
+                tool_args_json = tool['function']['arguments']  
+                tool_result = self.toolkit.call_tool(tool_name=tool_name, tool_args_json=tool_args_json)
+
                 self.memory.append({
                     'role' : 'tool', 
                     'tool_call_id' : tool_id, 
@@ -139,11 +140,13 @@ class MSGHandle:
 
                     fn = piece.get('function') or {}
                     if fn.get('name'):
-                        slot["name"] = fn['name']
+                        slot['name'] = fn['name']
                     if fn.get('arguments'):
-                        slot["arguments"] += fn['arguments']
+                        slot['arguments'] += fn['arguments']
 
-
+            #out不为空说明有说话 说完就换行
+            if out != '':
+                print()
             
             if not tool_used :
                 break
@@ -171,8 +174,9 @@ class MSGHandle:
             for tool in tool_calls:
                 tool_name = tool['function']['name']
                 tool_id = tool['id']
-                tool_result = self.toolkit.call_tool(tool_name=tool_name)
-                print(f"[工具调用] {tool_name} -> {tool_result}")
+                tool_args_json = tool['function']['arguments']
+                tool_result = self.toolkit.call_tool(tool_name=tool_name, tool_args_json=tool_args_json)
+
                 self.memory.append({
                     'role' : 'tool', 
                     'tool_call_id' : tool_id, 
@@ -197,7 +201,6 @@ class MSGHandle:
                 if content:
                     print(content, end = "", flush = True)
                     out += content
-
-        print()
+            print()
 
         return out
