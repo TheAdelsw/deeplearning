@@ -14,6 +14,8 @@
 
 
 /Vtuber/src/core/config.py
+/Vtuber/src/core/memory/memory.json
+
 
 __pycache__
 *.egg-info/

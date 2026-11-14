@@ -14,7 +14,7 @@ import json
 import core.tools.get_time as get_time
 import core.tools.get_random_number as get_random_number
 import core.tools.save_memory as save_memory
-
+import core.tools.recall_memory as recall_memory
 
 
 class ToolLibrary :
@@ -27,6 +27,7 @@ class ToolLibrary :
 
 
             save_memory.tool,
+            recall_memory.tool
         ]
 
         #存储工具调用方法
@@ -35,6 +36,7 @@ class ToolLibrary :
             "get_random_number" : get_random_number.get_random_number,
 
             "save_memory" : save_memory.save_memory,
+            "recall_memory" : recall_memory.recall_memory,
         }
     
 
@@ -55,7 +57,7 @@ class ToolLibrary :
             args = json.loads(tool_args_json) or {}
             #   **args解包运算传参 str将所有结果变为字符串以便传输回模型
             result = str(func(**args))
-            print(f"[工具调用] {tool_name} 成功, 传入参数{args} result: {result}")
+            print(f"[工具调用] {tool_name} , 传入参数{args} result: {result}")
             return result
 
         except json.JSONDecodeError as e:

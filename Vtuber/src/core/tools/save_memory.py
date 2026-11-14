@@ -29,7 +29,7 @@ tool = {
             "type" : "object",
             "properties" : {
                 #type 是格式要求 description 用以给模型知晓各个参数的作用
-                "content" : {"type" : "string", "description" : "想要记忆的主要内容"},
+                "content" : {"type" : "string", "description" : "想要记忆的主要内容 提炼精简"},
             },
             "required" : ["content"],     #两个都必须填
         }
@@ -39,5 +39,9 @@ tool = {
 
 
 def save_memory(content):
-    memory_library.save_memory(content=content)
-    return "记忆保存成功"
+    
+    result = memory_library.save_memory(content=content)
+    if result:
+        return "记忆保存成功"
+    else :
+        return "记忆保存失败"
