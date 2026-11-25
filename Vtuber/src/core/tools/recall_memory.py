@@ -16,28 +16,35 @@ tool = {
     "type" : "function",
     "function" : {
         "name" : "recall_memory",
-        "description" : "当你想要回忆一下有没有某件事或者你认为你可能知道某件事 可以调用这个工具",
+        "description" : "当你需要回忆对方的偏好 约定 或以前聊过的内容时调用此工具",
 
         "parameters" : {
             "type" : "object",
             "properties" : {
                 #type 是格式要求 description 用以给模型知晓各个参数的作用
-                "keyword" : {"type" : "string", "description" : "想要回忆的内容的关键字"},
+                "query" : {"type" : "string", "description" : "用自然语言描述想回忆的内容 不必是原文中的字词 例如 对方喜欢的颜色 对方的考试安排"},
             },
-            "required" : ["keyword"],     #两个都必须填
+            "required" : ["query"],     #两个都必须填
         }
     }
 }
 
 
-def recall_memory(keyword):
-    result = memory_library.recall_memory(keyword)
-    if result :
-        return result
-    else:
-        return result
+def recall_memory(query):
+    results = memory_library.recall_memory(query)
+    if not results :
+        #没有结果的时候返回对应未找到记忆的prompt
+        return "未找到相关记忆"
+    
+
+    #记忆库只给数据 此处工具将数据整理并返回
+
+    lines = [f"[{r['time']}] {r['content']}" for r in results]
+    #分隔符.join(字符串列表) 把列表里所有字符串用分隔符串成一个新字符串
+    return "\n" + "\n".join(lines)
+
 
 
 if __name__ == "__main__":
-    out = recall_memory("生日")
+    out = recall_memory("他今天吃了什么")
     print(out)

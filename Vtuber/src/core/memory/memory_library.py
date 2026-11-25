@@ -13,6 +13,10 @@
 from core.config import MEMORY_PATH 
 
 
+
+#引用RAG的检索器
+from core.rag import retriever
+
 import json 
 import os
 
@@ -66,16 +70,28 @@ def save_memory(content):
 
 
 
-def recall_memory(keyword):
+def recall_memory(query):
     """
-    按照关键词查找
-    最新的记忆最靠前
+    语义检索记忆
+    返回最相关的几条记忆
+    可能为空列表
+
+
     """
 
     entries = _load_all()
 
-    # reverse返回一个翻转后的列表
-    result = [e for e in reversed(entries) if keyword in e['content']]
+    if not entries :
+        return []
+
+
+    #获取记忆中的文本
+    texts = [e['content'] for e in entries]
+
+    
+    hits = retriever.search(query, texts)
+
+    result = [entries[i['index']] for i in hits]
 
     return result
 

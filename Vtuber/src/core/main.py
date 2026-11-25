@@ -10,6 +10,8 @@
 from core.LLMBrain import LLMBrain
 from core.MSGHandle import MSGHandle
 from core.tools.tools import ToolLibrary
+from core.rag.embedder import load_model
+
 
 from core.config import PERSONALITY_TRAIT
 
@@ -19,6 +21,7 @@ def main():
     brain = LLMBrain()
     toolkit = ToolLibrary()
     msghandle = MSGHandle(brain, toolkit)
+    load_model()
     
     # print(msghandle.memory)
     while(True):
