@@ -29,7 +29,7 @@ tool = {
             "type" : "object",
             "properties" : {
                 #type 是格式要求 description 用以给模型知晓各个参数的作用
-                "content" : {"type" : "string", "description" : "想要记忆的主要内容 提炼精简"},
+                "content" : {"type" : "string", "description" : "想要记忆的主要内容 提炼精简 记忆内容涉及时间时 把'今天/明天/下周'等相对说法换成具体日期 "},
             },
             "required" : ["content"],     #两个都必须填
         }

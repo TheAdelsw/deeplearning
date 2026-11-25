@@ -73,6 +73,7 @@ def save_memory(content):
 def recall_memory(query):
     """
     语义检索记忆
+    RAG
     返回最相关的几条记忆
     可能为空列表
 
@@ -94,6 +95,32 @@ def recall_memory(query):
     result = [entries[i['index']] for i in hits]
 
     return result
+
+
+
+
+def inject_memory(query):
+    #自动注入RAG检索 将所有相关信息整合为一条system信息
+    #查不到时返回空列表
+
+
+    results = recall_memory(query)
+
+    #RAG索引无内容时返回空列表
+    if not results:
+        return []
+
+    lines = [f"[{r['time']}] {r['content']}" for r in results]
+
+    #将所有内容整合
+    content = (
+        "以下是记忆库中与当前话题可能相关的记忆 回复时可以参考:\n"
+        + "\n".join(lines)
+    )
+
+    out_dic = [{"role" : "system", "content" : content}]
+
+    return out_dic
 
 
 

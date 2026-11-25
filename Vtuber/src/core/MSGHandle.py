@@ -20,6 +20,7 @@
 """
 
 from core.config import PERSONALITY_TRAIT
+from core.memory.memory_library import inject_memory
 # from tools.tools import TOOLS, call_tool
 
 
@@ -28,11 +29,19 @@ class MSGHandle:
         self.llmbrain = llmbrain
         self.toolkit = toolkit
         self.memory = [{"role" : "system", "content" : PERSONALITY_TRAIT}]
+        self.rag_inject = []
+
+
+
+
 
     #供用户主动输入消息的接口
     def UserSay(self, text, stream = False):
         msg = {"role" : "user", "content" : text}
         self.memory.append(msg)
+        #RAG注入
+        self.rag_inject = inject_memory(text)
+        print(f"[RAG]: {self.rag_inject}")
 
         if stream == False:
             out = self.agent_loop_nostream()
@@ -55,10 +64,34 @@ class MSGHandle:
 
 
 
+
+
+
+    def _build_message(self):
+        """
+        将所有消息整合的函数
+        供传给API调用
+
+        """
+
+        out = self.memory[:1] + self.rag_inject + self.memory[1:]
+        return out
+
+
+
+
+
+
+
+
+
+
+
+
     def agent_loop_nostream(self, max_rounds = 10):
         #先发送给模型对应数据 如果需要调用工具就不断进行循环
         for _ in range(max_rounds) :
-            all_reply = self.llmbrain.call_llm_nostream(self.memory, tools=self.toolkit.TOOLS)
+            all_reply = self.llmbrain.call_llm_nostream(self._build_message(), tools=self.toolkit.TOOLS)
             msg = all_reply['choices'][0]['message']
 
             #如果没有工具调用 直接返回
@@ -91,9 +124,18 @@ class MSGHandle:
             'content' : '调用工具次数超限,已经自动停止,请收到此消息后下一轮回复停止调用工具'
         })
         
-        all_reply = self.llmbrain.call_llm_nostream(self.memory, tools=self.toolkit.TOOLS)
+        all_reply = self.llmbrain.call_llm_nostream(self._build_message(), tools=self.toolkit.TOOLS)
         msg = all_reply['choices'][0]['message']
         return msg.get('content')
+
+
+
+
+
+
+
+
+
 
 
 
@@ -118,7 +160,7 @@ class MSGHandle:
             #记录工具是否被调用
             tool_used = False
 
-            reply_stream = self.llmbrain.call_llm_stream(self.memory, self.toolkit.TOOLS)
+            reply_stream = self.llmbrain.call_llm_stream(self._build_message(), self.toolkit.TOOLS)
             for reply in reply_stream:
                 delta = reply['choices'][0]['delta']
 
@@ -193,7 +235,7 @@ class MSGHandle:
                 'content' : '调用工具次数超限,已经自动停止,请收到此消息后下一轮回复停止调用工具'
             })
 
-            reply_stream = self.llmbrain.call_llm_stream(self.memory)
+            reply_stream = self.llmbrain.call_llm_stream(self._build_message(), self.toolkit.TOOLS)
             for reply in reply_stream:
 
                 content = reply['choices'][0]['delta'].get('content')
